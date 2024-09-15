@@ -1,4 +1,4 @@
-use crate::bytes::{self, dhara_r32, dhara_w32};
+use crate::bytes::{dhara_r32, dhara_w32};
 use crate::nand::{DharaBlock, DharaNand, DharaPage};
 use crate::DharaError;
 
@@ -134,7 +134,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
         let mut j = DharaJournal::<N,T> {
             nand: nand,
             page_buf: page_buf,
-            log2_ppc: Self::choose_ppc(psize, max),
+            log2_ppc: choose_ppc(psize, max),
             epoch: 0,
             flags: 0,
             bb_current: 0,
@@ -263,14 +263,14 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
         let offset = self.hdr_user_offset(page & ppc_mask);
 
         // Special case: buffered metadata
-        if Self::align_eq(page, self.head, self.log2_ppc) {
+        if align_eq(page, self.head, self.log2_ppc) {
             buf[..DHARA_META_SIZE].copy_from_slice(&self.page_buf[offset..offset+DHARA_META_SIZE]);
             return Ok(0);
         }
 
         // Special case: incomplete metadata dumped at start of recovery
         if (self.recover_meta != DHARA_PAGE_NONE) 
-                && Self::align_eq(page, self.recover_root, self.log2_ppc) {
+                && align_eq(page, self.recover_root, self.log2_ppc) {
             return self.nand.read(self.recover_meta, offset, DHARA_META_SIZE, buf);
         }
 
@@ -285,7 +285,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
             return DHARA_PAGE_NONE;
         }
 
-        if Self::is_aligned(self.tail, self.nand.get_log2_ppb()) {
+        if is_aligned(self.tail, self.nand.get_log2_ppb()) {
             let mut block: DharaBlock = self.tail >> self.nand.get_log2_ppb();
             let mut i: usize = 0;
 
@@ -321,8 +321,8 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
         }
 
         let chip_size: DharaPage = self.nand.get_num_blocks() << self.nand.get_log2_ppb();
-        let raw_size: DharaPage = Self::wrap(self.head + chip_size - self.tail, chip_size);
-        let root_offset: DharaPage = Self::wrap(self.head + chip_size - self.root, chip_size);
+        let raw_size: DharaPage = wrap(self.head + chip_size - self.tail, chip_size);
+        let root_offset: DharaPage = wrap(self.head + chip_size - self.root, chip_size);
 
         if root_offset > raw_size {
             self.root = DHARA_PAGE_NONE;
@@ -394,7 +394,8 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
     pub fn journal_copy(&mut self, page: DharaPage, meta: Option<&[u8]>) -> Result<u8,DharaError> {
         // TODO: use this logic like in dump_meta, or use match statements
         // and put the self.recover_from() in both the Err(e) branches?
-        let mut my_err: Result<u8,DharaError> = Ok(0);
+        // let mut my_err: Result<u8,DharaError> = Ok(0);
+        let mut my_err: Result<u8,DharaError>; // Always gets assigned in the loop.
         let mut i: usize = 0;
 
         while i < DHARA_MAX_RETRIES as usize {
@@ -539,25 +540,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
     }
 
     // ********************************************************************
-    // Page geometry helpers
-
-    // Is this page aligned to N bits?
-    fn is_aligned(p: DharaPage, n: u8) -> bool {
-        p & ((1 << n) - 1) == 0
-    }
-
-    // Are these two pages from the same alignment group?
-    fn align_eq(a: DharaPage, b: DharaPage, n: u8) -> bool {
-        (a ^ b) >> n == 0
-    }
-
-    fn wrap(a: DharaPage, b: DharaPage) -> DharaPage {
-        if a >= b {
-            a - b
-        } else {
-            a
-        }
-    }
+    // Page geometry helpers on the struct
 
     // What is the successor of this block?
     fn next_block(&self, blk: DharaBlock) -> DharaBlock {
@@ -584,10 +567,11 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
     }
 
     // TODO: this has an error, as we need to increment P before the first "if".
+    // See the C code.
     fn next_upage(&self, page: DharaPage) -> DharaPage {
         let mut p = page;
-
-        if Self::is_aligned(p + 1, self.log2_ppc) {
+        p += 1;
+        if is_aligned(p + 1, self.log2_ppc) {
             p += 1;
         }
 
@@ -595,26 +579,6 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
             p = 0;
         }
         p
-    }
-
-    // Calculate a checkpoint period: the largest value of ppc such that
-    // (2**ppc - 1) metadata blocks can fit on a page with one journal header.
-    fn choose_ppc(log2_psize: u8, max: u8) -> u8 {
-        let max_meta: usize = (1 << log2_psize)
-            - DHARA_HEADER_SIZE - DHARA_COOKIE_SIZE;
-        let mut total_meta: usize = DHARA_META_SIZE;
-        let mut ppc: u8 = 1;
-
-        while ppc < max {
-            total_meta <<= 1;
-            total_meta += DHARA_META_SIZE;
-
-            if total_meta > max_meta {
-                break;
-            }
-            ppc += 1;
-        }
-        ppc
     }
 
     // ********************************************************************
@@ -854,9 +818,9 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
             }
 
             // If we hit the end of the block, we're done.
-            if Self::is_aligned(self.head, self.nand.get_log2_ppb()) {
+            if is_aligned(self.head, self.nand.get_log2_ppb()) {
                 // Make sure we don't chase over the tail.
-                if Self::align_eq(self.head, self.tail, self.nand.get_log2_ppb()) {
+                if align_eq(self.head, self.tail, self.nand.get_log2_ppb()) {
                     self.tail = self.next_block(self.tail >> self.nand.get_log2_ppb()) << self.nand.get_log2_ppb();
                 }
                 break;
@@ -870,13 +834,13 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
 
         // We can't write if doing so would cause the head pointer to
         // roll onto the same block as the last-synched tail.
-        if Self::align_eq(next, self.tail_sync, self.nand.get_log2_ppb())
-                && !Self::align_eq(next, self.head, self.nand.get_log2_ppb()) {
+        if align_eq(next, self.tail_sync, self.nand.get_log2_ppb())
+                && !align_eq(next, self.head, self.nand.get_log2_ppb()) {
             return Err(DharaError::JournalFull);
         }
 
         self.flags |= DHARA_JOURNAL_F_DIRTY;
-        if !Self::is_aligned(self.head, self.nand.get_log2_ppb()) {
+        if !is_aligned(self.head, self.nand.get_log2_ppb()) {
             return Ok(0);
         }
 
@@ -902,7 +866,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
         // it to hold our dumped metadata (it will then be marked bad at 
         // the end of recovery).
         if self.recover_meta == DHARA_PAGE_NONE 
-                || !Self::align_eq(self.recover_meta, old_head, self.nand.get_log2_ppb()) {
+                || !align_eq(self.recover_meta, old_head, self.nand.get_log2_ppb()) {
             self.nand.mark_bad(old_head >> self.nand.get_log2_ppb());
         } else {
             self.flags |= DHARA_JOURNAL_F_BAD_META;
@@ -972,7 +936,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
         }
 
         // Were we block aligned? No recovery required!
-        if Self::is_aligned(old_head, self.nand.get_log2_ppb()) {
+        if is_aligned(old_head, self.nand.get_log2_ppb()) {
             self.nand.mark_bad(old_head >> self.nand.get_log2_ppb());
             return Ok(0);
         }
@@ -981,7 +945,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
         self.recover_next = self.recover_root & !((1u32 << self.nand.get_log2_ppb()) - 1);
 
         // Are we holding buffered metadata?  Dump it first.
-        if !Self::is_aligned(old_head, self.log2_ppc) {
+        if !is_aligned(old_head, self.log2_ppc) {
             self.dump_meta()?;
         }
 
@@ -1019,7 +983,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
         }
 
         // Unless we've filled the buffer, don't do any I/O.
-        if !Self::is_aligned(self.head + 2, self.log2_ppc) {
+        if !is_aligned(self.head + 2, self.log2_ppc) {
             self.root = self.head;
             self.head += 1;
             return Ok(0);
@@ -1062,9 +1026,142 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
 
 }
 
+// ********************************************************************
+// Page geometry helpers independent of the struct
+
+// Is this page aligned to N bits?
+fn is_aligned(p: DharaPage, n: u8) -> bool {
+    p & ((1u32 << n) - 1) == 0
+}
+
+// Are these two pages from the same alignment group?
+fn align_eq(a: DharaPage, b: DharaPage, n: u8) -> bool {
+    (a ^ b) >> n == 0
+}
+
+fn wrap(a: DharaPage, b: DharaPage) -> DharaPage {
+    if a >= b {
+        a - b
+    } else {
+        a
+    }
+}
+
+// Calculate a checkpoint period: the largest value of ppc such that
+// (2**ppc - 1) metadata blocks can fit on a page with one journal header.
+fn choose_ppc(log2_psize: u8, max: u8) -> u8 {
+    let max_meta: usize = (1 << log2_psize)
+        - DHARA_HEADER_SIZE - DHARA_COOKIE_SIZE;
+    let mut total_meta: usize = DHARA_META_SIZE;
+    let mut ppc: u8 = 1;
+
+    while ppc < max {
+        total_meta <<= 1;
+        total_meta += DHARA_META_SIZE;
+
+        if total_meta > max_meta {
+            break;
+        }
+        ppc += 1;
+    }
+    ppc
+}
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::nand::{DharaBlock, DharaNand, DharaPage};
 
+    struct SimpleNand {}
+
+    impl DharaNand for SimpleNand {
+        // A simulated 64 kiB NAND
+        fn get_log2_page_size(&self) -> u8 {9} // 512 bytes/page, enough for 3 metadata blocks
+        fn get_log2_ppb(&self) -> u8 {3}// 8 pages per erase block
+        fn get_num_blocks(&self) -> u32 {16} // 16 erase blocks, or 128 pages total
+        fn is_bad(&self, _blk: DharaBlock) -> bool {false}
+        fn is_free(&self, _page: DharaPage) -> bool {true}
+        fn mark_bad(&self, _blk: DharaBlock) -> () {()}
+        fn read(&self, _page: u32, _offset: usize, _length: usize, data: &mut[u8]) -> Result<u8, DharaError> {
+            data.fill(0x55);
+            Ok(0)
+        }
+        fn erase(&self, _blk: DharaBlock) -> Result<u8,DharaError> {Ok(0)}
+        fn copy(&self, _src: DharaPage, _dst: DharaPage) -> Result<u8,DharaError> {Ok(0)}
+        fn prog(&self, _page: DharaPage, _data: &[u8]) -> Result<u8,DharaError> {Ok(0)}
+    }
+
+    fn make_journal() -> DharaJournal::<512, SimpleNand> {
+        let nand: SimpleNand = SimpleNand{};
+        let buf: [u8; 512] = [0u8; 512]; // We start it with 0, but it gets changed to 0xFF when initialized.
+        DharaJournal::<512, SimpleNand>::new(nand, buf)
+    }
+
+    #[test]
+    fn test_header() -> () {
+        // A bunch of trivial tests to make sure header get/set work correctly.
+        let mut j = make_journal();
+
+        // Magic values
+        assert!(!j.hdr_has_magic());
+        j.hdr_put_magic();
+        assert!(j.hdr_has_magic());
+
+        // Epoch
+        assert_eq!(j.hdr_get_epoch(), 0xFF); // Whole buffer set to 0xFF by reset_journal().
+        j.hdr_set_epoch(1);
+        assert_eq!(j.hdr_get_epoch(), 1u8);
+
+        // Tail
+        assert_eq!(j.hdr_get_tail(), 0xFFFFFFFF);
+        j.hdr_set_tail(0x0056AB1F);
+        assert_eq!(j.hdr_get_tail(), 0x0056AB1F);
+
+        // bb_current
+        assert_eq!(j.hdr_get_bb_current(), 0xFFFFFFFF);
+        j.hdr_set_bb_current(0x3578AF41);
+        assert_eq!(j.hdr_get_bb_current(), 0x3578AF41);
+
+        // bb_last
+        assert_eq!(j.hdr_get_bb_last(), 0xFFFFFFFF);
+        j.hdr_set_bb_last(0xAA558920);
+        assert_eq!(j.hdr_get_bb_last(), 0xAA558920);
+
+        // clear user
+        // TODO: is there a way we can test clear_user()?
+
+        // hdr_usr_offset
+        assert_eq!(j.hdr_user_offset(2), 16+4+2*132);
+    }
+
+    #[test]
+    #[should_panic]
+    fn clear_too_much() -> () {
+        let mut j = make_journal();
+        j.hdr_clear_user(10);  // Clears 1024 bytes rather than 512.
+    }
+
+    #[test]
+    fn page_geometry() -> () {
+        // Tests unrelated to a journal.
+        assert!(is_aligned(128, 6));
+        assert!(!is_aligned(129, 6));
+        assert!(align_eq(17, 18, 2)); // Same group of 2^2 = 4 pages.
+        assert!(!align_eq(27, 18, 2));// Not in the same 4 pages.
+        assert_eq!(wrap(7, 3), 4);
+        assert_eq!(wrap(3, 7), 3);
+        assert_eq!(choose_ppc(11, 6), 4); // Values for stationary logger.
+        assert_eq!(choose_ppc(9, 3), 2); // Values for SimpleNand.
+
+        // Tests of geometry methods.
+        let j = make_journal();
+        assert_eq!(j.next_block(0), 1);
+        assert_eq!(j.next_block(15), 0); // 15 blocks.
+        assert_eq!(j.log2_ppc, 2);
+        assert_eq!(j.next_upage(0), 1);
+        assert_eq!(j.next_upage(14), 16); // 15 user pages, then journal, so next is #16.
+    }
 
 }
