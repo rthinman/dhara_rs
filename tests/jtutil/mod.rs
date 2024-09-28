@@ -1,5 +1,3 @@
-// mod sim;
-
 use dhara_rs::bytes::{dhara_r32, dhara_w32};
 use dhara_rs::journal::{DharaJournal, DHARA_PAGE_NONE, DHARA_META_SIZE, DHARA_MAX_RETRIES};
 // use dhara_rs::nand::DharaPage;
@@ -17,7 +15,7 @@ fn check_upage(j: &SimJournal, page: DharaPage) -> () {
 }
 
 pub fn jt_check(j: &SimJournal) -> () {
-    // Head and tail poiners always point to a valid user-page
+    // Head and tail pointers always point to a valid user-page
     // index (never a meta-page, and never out-of-bounds).
     check_upage(j, j.get_head());
     check_upage(j, j.get_tail());
@@ -100,7 +98,7 @@ fn enqueue(j: &mut SimJournal, id: u32) -> Result<u8,DharaError> {
 }
 
 // TODO: change count's type to a custom enum with variants Count(n) and All.
-/// count: number of pages to enqueue.  None => all pages in the NAND.
+/// count: Some(number of pages to enqueue).  None => all pages in the NAND.
 pub fn jt_enqueue_sequence(j: &mut SimJournal, start: usize, count: Option<usize>) -> usize {
     let count:usize = if let Some(count) = count {
         count
@@ -119,12 +117,6 @@ pub fn jt_enqueue_sequence(j: &mut SimJournal, start: usize, count: Option<usize
 
         assert!(j.journal_size() >= i as u32);
         let root = j.journal_root();
-
-        // match j.journal_read_meta(root, &mut meta) {
-        //     Ok(_) => {assert_eq!(dhara_r32(&meta[0..4]), (start+i) as u32);},
-        //     Err(e) => {panic!("read_meta {:?}", e);},
-        // }
-        // Instead of above, do the following:
 
         j.journal_read_meta(root, &mut meta).expect("read meta");
         assert_eq!(dhara_r32(&meta[0..4]), (start+i) as u32);

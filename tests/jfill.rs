@@ -3,22 +3,21 @@ mod sim;
 
 use sim::SimNand;
 use jtutil::{SimJournal, jt_enqueue_sequence, jt_dequeue_sequence};
-use dhara_rs::journal::{DharaJournal, DHARA_PAGE_NONE};
 
 fn fill() -> () {
     let mut nand: SimNand = SimNand::new();
     nand.sim_reset();
-    // nand.sim_inject_bad(10);
-    // nand.sim_inject_failed(10);
+    nand.sim_inject_bad(10);
+    nand.sim_inject_failed(10);
 
     // Set up the journal's buffer.
     let buf: [u8; 512] = [0u8; 512]; // We start it with 0, but it gets changed to 0xFF when initialized.
 
     // Give them to the journal.
-    //println!("Journal init");
+    println!("Journal init");
     let mut journal = SimJournal::new(nand, buf);
-    //println!("    capacity: {}", journal.journal_capacity());
-    //println!("");
+    println!("    capacity: {}", journal.journal_capacity());
+    println!("");
 
     for rep in 0..5 {
         println!("Rep: {}", rep);
@@ -41,6 +40,10 @@ fn fill() -> () {
 
 #[test]
 fn main_jfill() -> () {
-    // TODO: put this in a loop and maybe pass a seed?
-    fill();
+    for _ in 0..100 {
+        // The C code seeds the random number generator with loop variable i, 
+        // but thread_rng() gets seeded by the system.
+        println!("-------------------------------------------------------");
+        fill();
+    }
 }
