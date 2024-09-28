@@ -2,7 +2,7 @@ mod jtutil;
 mod sim;
 
 use sim::SimNand;
-use jtutil::{SimJournal, jt_enqueue_sequence, jt_dequeue_sequence};
+use jtutil::{Pages, SimJournal, jt_enqueue_sequence, jt_dequeue_sequence};
 
 fn fill() -> () {
     let mut nand: SimNand = SimNand::new();
@@ -23,8 +23,8 @@ fn fill() -> () {
         println!("Rep: {}", rep);
 
         println!("    enqueue until error...");
-        // let count = jt_enqueue_sequence(&mut journal, 0, None);
-        let count = jt_enqueue_sequence(&mut journal, 0, None);
+        // let count = jt_enqueue_sequence(&mut journal, 0, Pages::All);
+        let count = jt_enqueue_sequence(&mut journal, 0, Pages::All);
         println!("    enqueue count: {}", count);
         println!("    size:          {}", journal.journal_size());
 

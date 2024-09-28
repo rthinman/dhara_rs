@@ -5,6 +5,12 @@ use dhara_rs::nand::{DharaNand, DharaPage};
 use dhara_rs::DharaError;
 use crate::sim::{seq_assert, seq_gen, SimNand, PAGE_SIZE};
 
+/// To specify how many pages to enqueue.
+pub enum Pages {
+    All,
+    Count(usize),
+}
+
 // Reduce typing for this specific test journal.
 pub type SimJournal = DharaJournal::<512, SimNand>;
 
@@ -98,12 +104,11 @@ fn enqueue(j: &mut SimJournal, id: u32) -> Result<u8,DharaError> {
 }
 
 // TODO: change count's type to a custom enum with variants Count(n) and All.
-/// count: Some(number of pages to enqueue).  None => all pages in the NAND.
-pub fn jt_enqueue_sequence(j: &mut SimJournal, start: usize, count: Option<usize>) -> usize {
-    let count:usize = if let Some(count) = count {
-        count
-    } else {
-        (j.get_num_blocks() << j.get_log2_ppb()) as usize
+/// count: Count(number of pages to enqueue).  All => all pages in the NAND.
+pub fn jt_enqueue_sequence(j: &mut SimJournal, start: usize, count: Pages) -> usize {
+    let count:usize = match count {
+        Pages::All => (j.get_num_blocks() << j.get_log2_ppb()) as usize,
+        Pages::Count(count) => count,
     };
 
     for i in 0..count {

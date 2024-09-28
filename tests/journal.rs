@@ -2,7 +2,7 @@ mod jtutil;
 mod sim;
 
 use sim::SimNand;
-use jtutil::{SimJournal, jt_enqueue_sequence, jt_dequeue_sequence};
+use jtutil::{Pages, SimJournal, jt_enqueue_sequence, jt_dequeue_sequence};
 use dhara_rs::journal::{DharaJournal, DHARA_PAGE_NONE};
 
 fn suspend_resume(j: &mut SimJournal) -> () {
@@ -45,7 +45,7 @@ fn main_journal() -> () {
 
     println!("Enqueue/dequeue, 100 pages x 20");
     for _rep in 0..20 {
-        let count = jt_enqueue_sequence(&mut journal, 0, Some(100));
+        let count = jt_enqueue_sequence(&mut journal, 0, Pages::Count(100));
         assert!(count == 100);
         print!("    size    = {} -> ", journal.journal_size());
         jt_dequeue_sequence(&mut journal, 0, count);
@@ -62,11 +62,11 @@ fn main_journal() -> () {
         // I didn't look to see where in the tests the cookie code was used.  Double check that this does
         // what we need.
         journal.set_cookie(rep);
-        let mut count = jt_enqueue_sequence(&mut journal, 0, Some(100));
+        let mut count = jt_enqueue_sequence(&mut journal, 0, Pages::Count(100));
         assert_eq!(count, 100);
 
         while !journal.journal_is_clean() {
-            let c = jt_enqueue_sequence(&mut journal, count, Some(1));
+            let c = jt_enqueue_sequence(&mut journal, count, Pages::Count(1));
             count += 1;
             assert_eq!(c, 1);
         }
