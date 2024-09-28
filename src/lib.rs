@@ -1,4 +1,4 @@
-mod bytes;
+pub mod bytes;
 pub mod journal;
 pub mod nand;
 
@@ -6,6 +6,7 @@ pub mod nand;
 const DHARA_SECTOR_NONE:u32 = 0xffffffff;  // TODO: if we have Option/Result return types, do we need this?
 
 // TODO: possible move to a new module, to include human-readable functions.
+#[derive(Debug)]
 pub enum DharaError {
     BadBlock,
     ECC,

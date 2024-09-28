@@ -19,18 +19,18 @@ const DHARA_COOKIE_SIZE: usize = 4;
 /// This is the size of the metadata slice which accompanies each written
 /// page. This is independent of the underlying page/OOB size.
 /// 
-const DHARA_META_SIZE: usize = 132;
+pub const DHARA_META_SIZE: usize = 132;
 
 /// When a block fails, or garbage is encountered, we try again on the
 /// next block/checkpoint. We can do this up to the given number of
 /// times.
 /// 
-const DHARA_MAX_RETRIES: u8 = 8;
+pub const DHARA_MAX_RETRIES: u8 = 8;
 
 /// This is a page number which can be used to represent "no such page".
 /// It's guaranteed to never be a valid user page.
 /// 
-const DHARA_PAGE_NONE: DharaPage = 0xffffffff;
+pub const DHARA_PAGE_NONE: DharaPage = 0xffffffff;
 
 // State flags
 // TODO: Is there a more idiomatic way to represent this in Rust?
@@ -53,8 +53,11 @@ const DHARA_JOURNAL_F_ENUM_DONE: u8 = 	0x08;
 /// 
 pub struct DharaJournal<const N: usize,T: DharaNand> {
     // TODO: Need to deal with the NAND driver.
+    // TODO: Made this public for jtutil's dequeue function.  Is there a 
+    //       better way?  If we keep it like this, there are places where we could 
+    //       clean up, like removing DharaJournal's nand parameter getters.
     /// A NAND driver implementation.
-    nand: T, 
+    pub nand: T, 
     
     /// The temporary buffer where page data are kept.
     page_buf: [u8; N],
@@ -426,6 +429,11 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
         self.flags & DHARA_JOURNAL_F_DIRTY == 0
     }
 
+    /// True if journal is in recovery.
+    pub fn journal_in_recovery(&self) -> bool {
+        self.flags & DHARA_JOURNAL_F_RECOVERY != 0
+    }
+
     /// If an operation returns E_RECOVER, you must begin the recovery
     /// procedure. You must then:
     /// 
@@ -459,6 +467,29 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
 
         return n;
     }
+
+    // Some more getters, mostly for testing
+    pub fn get_log2_ppc(&self) -> u8 {self.log2_ppc}
+    pub fn get_head(&self) -> u32 {self.head}
+    pub fn get_tail(&self) -> u32 {self.tail}
+    pub fn get_tail_sync(&self) -> u32 {self.tail_sync}
+    pub fn get_bb_current(&self) -> u32 {self.bb_current}
+    pub fn get_bb_last(&self) -> u32 {self.bb_last}
+    pub fn get_root(&self) -> u32 {self.root}
+    pub fn get_log2_ppb(&self) -> u8 {self.nand.get_log2_ppb()}
+    pub fn get_num_blocks(&self) -> u32 {self.nand.get_num_blocks()}
+    // And setters
+    pub fn set_tail_sync(&mut self, v: u32) -> () {self.tail_sync = v;}
+    
+    // These functions are only used when simulating the nand.
+    // #[cfg(test)]
+    // pub fn freeze_stats(&mut self) -> () {
+    //     self.nand.freeze();
+    // }
+    // #[cfg(test)]
+    // pub fn thaw_stats(&mut self) -> () {
+    //     self.nand.thaw();
+    // }
 }
 
 // ///////////////////////////////////////////////////////////////////////
@@ -711,7 +742,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
     // the group is truly unprogrammed, or if it was partially programmed
     // with some all-0xff user pages (which changes nothing for us).
     //
-    fn cp_free(&self, first_user: DharaPage) -> bool {
+    fn cp_free(&mut self, first_user: DharaPage) -> bool {
         let count: usize = 1 << self.log2_ppc;
         let mut i: usize = 0;
 
@@ -731,7 +762,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
 	// last programmed one.
     // block is the erase block number.
     // Returns the page number.
-    fn find_last_group(&self, block: DharaBlock) -> DharaPage {
+    fn find_last_group(&mut self, block: DharaBlock) -> DharaPage {
         let num_groups: u32 = 1 << (self.nand.get_log2_ppb() - self.log2_ppc);
         let mut low = 0;
         let mut high = num_groups - 1;
@@ -1020,10 +1051,6 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
         Ok(0)
     }
 
-    fn journal_in_recovery(&self) -> bool {
-        self.flags & DHARA_JOURNAL_F_RECOVERY != 0
-    }
-
 }
 
 // ********************************************************************
@@ -1081,16 +1108,21 @@ mod tests {
         fn get_log2_page_size(&self) -> u8 {9} // 512 bytes/page, enough for 3 metadata blocks
         fn get_log2_ppb(&self) -> u8 {3}// 8 pages per erase block
         fn get_num_blocks(&self) -> u32 {16} // 16 erase blocks, or 128 pages total
-        fn is_bad(&self, _blk: DharaBlock) -> bool {false}
-        fn is_free(&self, _page: DharaPage) -> bool {true}
-        fn mark_bad(&self, _blk: DharaBlock) -> () {()}
-        fn read(&self, _page: u32, _offset: usize, _length: usize, data: &mut[u8]) -> Result<u8, DharaError> {
+        fn is_bad(&mut self, _blk: DharaBlock) -> bool {false}
+        fn is_free(&mut self, _page: DharaPage) -> bool {true}
+        fn mark_bad(&mut self, _blk: DharaBlock) -> () {()}
+        fn read(&mut self, _page: u32, _offset: usize, _length: usize, data: &mut[u8]) -> Result<u8, DharaError> {
             data.fill(0x55);
             Ok(0)
         }
-        fn erase(&self, _blk: DharaBlock) -> Result<u8,DharaError> {Ok(0)}
-        fn copy(&self, _src: DharaPage, _dst: DharaPage) -> Result<u8,DharaError> {Ok(0)}
-        fn prog(&self, _page: DharaPage, _data: &[u8]) -> Result<u8,DharaError> {Ok(0)}
+        fn erase(&mut self, _blk: DharaBlock) -> Result<u8,DharaError> {Ok(0)}
+        fn copy(&mut self, _src: DharaPage, _dst: DharaPage) -> Result<u8,DharaError> {Ok(0)}
+        fn prog(&mut self, _page: DharaPage, _data: &[u8]) -> Result<u8,DharaError> {Ok(0)}
+        // Only used when simulating.
+        // #[cfg(test)]
+        // fn freeze(&mut self) -> () {()}
+        // #[cfg(test)]
+        // fn thaw(&mut self) -> () {()}
     }
 
     fn make_journal() -> DharaJournal::<512, SimpleNand> {
