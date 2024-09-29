@@ -290,9 +290,8 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
 
         if is_aligned(self.tail, self.nand.get_log2_ppb()) {
             let mut block: DharaBlock = self.tail >> self.nand.get_log2_ppb();
-            let mut i: usize = 0;
 
-            while i < DHARA_MAX_RETRIES as usize {
+            for _ in 0..DHARA_MAX_RETRIES {
                 if (block == (self.head >> self.nand.get_log2_ppb())) 
                         || !self.nand.is_bad(block) {
                     self.tail = block << self.nand.get_log2_ppb();
@@ -302,7 +301,6 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
                     return self.tail;
                 }
                 block = self.next_block(block);
-                i += 1;
             }
         }
         return self.tail;
@@ -355,9 +353,8 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
     /// be restarted.
     /// 
     pub fn journal_enqueue(&mut self, data: Option<&[u8]>, meta: Option<&[u8]>) -> Result<u8, DharaError> {
-        let mut i: usize = 0;
 
-        while i < DHARA_MAX_RETRIES as usize {
+        for _ in 0..DHARA_MAX_RETRIES {
             // Only try to program if head preparation succeeds.
             match self.prepare_head() {
                 Ok(_) => {
@@ -377,7 +374,6 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
                 },
                 Err(e) => {self.recover_from(e)?;},
             }
-            i += 1;
         }
         Err(DharaError::TooBad)
     }
@@ -399,9 +395,8 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
         // and put the self.recover_from() in both the Err(e) branches?
         // let mut my_err: Result<u8,DharaError> = Ok(0);
         let mut my_err: Result<u8,DharaError>; // Always gets assigned in the loop.
-        let mut i: usize = 0;
 
-        while i < DHARA_MAX_RETRIES as usize {
+        for _ in 0..DHARA_MAX_RETRIES {
             my_err = self.prepare_head();
             if my_err.is_ok() {
                 my_err = self.nand.copy(page, self.head);
@@ -412,8 +407,6 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
             // my_err should always be an error if we get here so unwrap_err() shouldn't panic.
             // Try to recover and eitehr exit with an error code or keep going around the loop.
             self.recover_from(my_err.unwrap_err())?;
-
-            i += 1;
         }
         Err(DharaError::TooBad)
     }
@@ -597,11 +590,9 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
         Ok(0)
     }
 
-    // TODO: this has an error, as we need to increment P before the first "if".
-    // See the C code.
     fn next_upage(&self, page: DharaPage) -> DharaPage {
-        let mut p = page;
-        p += 1;
+        let mut p = page + 1;
+
         if is_aligned(p + 1, self.log2_ppc) {
             p += 1;
         }
@@ -744,13 +735,11 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
     //
     fn cp_free(&mut self, first_user: DharaPage) -> bool {
         let count: usize = 1 << self.log2_ppc;
-        let mut i: usize = 0;
 
-        while i < count {
+        for _ in 0..count {
             if !self.nand.is_free(first_user + 1) {
                 return false;
             }
-            i += 1;
         }
         true
     }
@@ -875,9 +864,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
             return Ok(0);
         }
 
-        let mut i: usize = 0;
-
-        while i < DHARA_MAX_RETRIES as usize {
+        for _ in 0..DHARA_MAX_RETRIES {
             let block: DharaBlock = self.head >> self.nand.get_log2_ppb();
 
             if !self.nand.is_bad(block) {
@@ -886,7 +873,6 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
 
             self.bb_current += 1;
             self.skip_block()?; // Returning the error, ignoring the Ok() case.
-            i += 1;
         }
 
         return Err(DharaError::TooBad);
@@ -914,10 +900,9 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
     fn dump_meta(&mut self) -> Result<u8,DharaError> {
         // We've just begun recovery on a new erasable block, but we have 
         // buffered metadata from the failed block.
-        let mut i: usize = 0;
         let mut my_err: Result<u8,DharaError> = Ok(0);
 
-        while i < DHARA_MAX_RETRIES as usize {
+        for _ in 0..DHARA_MAX_RETRIES {
             my_err = self.prepare_head();
             if my_err.is_ok() {
                 my_err = self.nand.prog(self.head, &self.page_buf);
@@ -934,15 +919,13 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
             }
             // Report fatal errors.
             match my_err {
-                Err(DharaError::BadBlock) => return my_err,
-                _ => (),
+                Err(DharaError::BadBlock) => (),
+                _ => return my_err,
             }
 
             self.bb_current += 1;
             self.nand.mark_bad(self.head >> self.nand.get_log2_ppb());
             self.skip_block()?;
-
-            i += 1;
         }
 
         Err(DharaError::TooBad)

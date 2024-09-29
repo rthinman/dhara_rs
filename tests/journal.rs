@@ -3,7 +3,7 @@ mod sim;
 
 use sim::SimNand;
 use jtutil::{Pages, SimJournal, jt_enqueue_sequence, jt_dequeue_sequence};
-use dhara_rs::journal::{DharaJournal, DHARA_PAGE_NONE};
+use dhara_rs::journal::{DHARA_PAGE_NONE};
 
 fn suspend_resume(j: &mut SimJournal) -> () {
     let old_root = j.journal_root();

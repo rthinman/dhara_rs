@@ -8,7 +8,7 @@ use crate::sim::{seq_assert, seq_gen, SimNand, PAGE_SIZE};
 /// To specify how many pages to enqueue.
 pub enum Pages {
     All,
-    Count(usize),
+    Count(u32),
 }
 
 // Reduce typing for this specific test journal.
@@ -89,6 +89,7 @@ fn recover(j: &mut SimJournal) -> () {
 fn enqueue(j: &mut SimJournal, id: u32) -> Result<u8,DharaError> {
     let mut r: [u8; PAGE_SIZE] = [0u8; PAGE_SIZE];
     let mut meta: [u8; DHARA_META_SIZE] = [0u8; DHARA_META_SIZE];
+
     seq_gen(id as u64, &mut r); // Fill r with random data.
     dhara_w32(&mut meta[0..4], id);
 
@@ -105,31 +106,31 @@ fn enqueue(j: &mut SimJournal, id: u32) -> Result<u8,DharaError> {
 
 // TODO: change count's type to a custom enum with variants Count(n) and All.
 /// count: Count(number of pages to enqueue).  All => all pages in the NAND.
-pub fn jt_enqueue_sequence(j: &mut SimJournal, start: usize, count: Pages) -> usize {
-    let count:usize = match count {
-        Pages::All => (j.get_num_blocks() << j.get_log2_ppb()) as usize,
+pub fn jt_enqueue_sequence(j: &mut SimJournal, start: u32, count: Pages) -> u32 {
+    let count:u32 = match count {
+        Pages::All => j.get_num_blocks() << j.get_log2_ppb(),
         Pages::Count(count) => count,
     };
 
     for i in 0..count {
         let mut meta: [u8; DHARA_META_SIZE] = [0u8; DHARA_META_SIZE];
 
-        match enqueue(j, (start+i) as u32) {
+        match enqueue(j, start+i) {
             Ok(_) => (),
             Err(DharaError::JournalFull) => {return i;},
             Err(e) => {panic!("enqueue {:?} i = {}", e, i);},
         }
 
-        assert!(j.journal_size() >= i as u32);
+        assert!(j.journal_size() >= i);
         let root = j.journal_root();
 
         j.journal_read_meta(root, &mut meta).expect("read meta");
-        assert_eq!(dhara_r32(&meta[0..4]), (start+i) as u32);
+        assert_eq!(dhara_r32(&meta[0..4]), start+i);
     }
     count
 }
 
-pub fn jt_dequeue_sequence(j: &mut SimJournal, next: usize, count: usize) -> () {
+pub fn jt_dequeue_sequence(j: &mut SimJournal, next: u32, count: u32) -> () {
     // Shadow them to make them mutable.
     let mut count = count;
     let mut next = next;
@@ -156,7 +157,7 @@ pub fn jt_dequeue_sequence(j: &mut SimJournal, next: usize, count: usize) -> () 
         } else {
             let mut r: [u8; PAGE_SIZE] = [0; PAGE_SIZE];
 
-            assert_eq!(id as usize, next);
+            assert_eq!(id, next);
             garbage_count = 0;
             next += 1;
             count -= 1;

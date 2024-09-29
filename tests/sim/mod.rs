@@ -17,12 +17,12 @@ const MEM_SIZE: usize       = NUM_BLOCKS * BLOCK_SIZE; // 4096 * 113 = 462_848 b
 
 const BLOCK_BAD_MARK: u8 = 0x01;
 const BLOCK_FAILED: u8   = 0x02;
-const BLOCK_BOTH: u8 = BLOCK_FAILED & BLOCK_BAD_MARK;
+const BLOCK_BOTH: u8 = BLOCK_FAILED | BLOCK_BAD_MARK;
 
 // Struct used to capture call counts.
 #[derive(Default)]
 struct SimStats {
-    frozen: bool,  // TODO: I changed this from an int.  Do we need int?
+    frozen: bool,
     is_bad: usize,
     mark_bad: usize,
     erase: usize,
@@ -91,25 +91,23 @@ impl SimNand {
     }
 
     pub fn timebomb_tick(&mut self, blkno: usize) -> () {
-        let idx: usize = blkno as usize;
-
-        if self.blocks[idx].timebomb != 0 {
-            self.blocks[idx].timebomb -= 1;
-            if self.blocks[idx].timebomb == 0 {
-                self.blocks[idx].flags |= BLOCK_FAILED;
+        if self.blocks[blkno].timebomb != 0 {
+            self.blocks[blkno].timebomb -= 1;
+            if self.blocks[blkno].timebomb == 0 {
+                self.blocks[blkno].flags |= BLOCK_FAILED;
             }
         }
     }
 
-    fn rep_status(&self, blkno: usize) -> u8 {
+    fn rep_status(&self, blkno: usize) -> char {
         match self.blocks[blkno].flags {
-            BLOCK_FAILED => b'b',
-            BLOCK_BAD_MARK => b'?',
-            BLOCK_BOTH => b'B',
+            BLOCK_FAILED => 'b',
+            BLOCK_BAD_MARK => '?',
+            BLOCK_BOTH => 'B',
             _ => if self.blocks[blkno].next_page != 0 {
-                    b':'
+                    ':'
                 } else {
-                    b'.'
+                    '.'
                 },
         }
     }
@@ -169,8 +167,8 @@ impl SimNand {
         println!("Block status:");
     
         let mut i: usize = 0;
-        while i < (NUM_BLOCKS) {
-            let mut j: usize = (NUM_BLOCKS) - i;
+        while i < NUM_BLOCKS {
+            let mut j: usize = NUM_BLOCKS - i;
             if j > 64 {
                 j = 64;
             }
@@ -238,7 +236,7 @@ impl DharaNand for SimNand {
         if !self.stats.frozen {
             self.stats.erase += 1;
         }
-        
+
         // Remove the PAGES_PER_BLOCK indication of full.
         self.blocks[block].next_page = 0;
 
@@ -250,7 +248,6 @@ impl DharaNand for SimNand {
             if !self.stats.frozen {
                 self.stats.erase_fail += 1;
             }
-            // TODO: seq_gen(blk * 57 + 29, blk_idx, BLOCK_SIZE);
             seq_gen((blk * 57 + 29) as u64, &mut self.pages[blk_idx..(blk_idx+BLOCK_SIZE)]);
             return Err(DharaError::BadBlock);
         }
@@ -308,7 +305,6 @@ impl DharaNand for SimNand {
             if !self.stats.frozen {
                 self.stats.prog_fail += 1;
             }
-            // TODO: seq_gen(page * 57 + 29, page_idx, PAGE_SIZE);
             seq_gen((page * 57 + 29) as u64, &mut self.pages[page_idx..(page_idx+PAGE_SIZE)]);
             return Err(DharaError::BadBlock);
         }

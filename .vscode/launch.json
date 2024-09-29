@@ -8,7 +8,7 @@
             "name": "(Windows) Launch",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceRoot}/target/debug/deps/jfill-ec662ac6db5fe968.exe",
+            "program": "${workspaceRoot}/target/debug/deps/recovery-49495acc7a777f5b.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceRoot}",
