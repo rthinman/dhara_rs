@@ -50,7 +50,7 @@ pub fn jt_check(j: &SimJournal) -> () {
 
 fn recover(j: &mut SimJournal) -> () {
     let mut retry_count: usize = 0;
-    let mut res: Result<u8, DharaError> = Ok(0);
+    let mut res: Result<(), DharaError> = Ok(());
 
     println!("    recover: start");
 
@@ -86,7 +86,7 @@ fn recover(j: &mut SimJournal) -> () {
     println!("    recover: complete");
 }
 
-fn enqueue(j: &mut SimJournal, id: u32) -> Result<u8,DharaError> {
+fn enqueue(j: &mut SimJournal, id: u32) -> Result<(),DharaError> {
     let mut r: [u8; PAGE_SIZE] = [0u8; PAGE_SIZE];
     let mut meta: [u8; DHARA_META_SIZE] = [0u8; DHARA_META_SIZE];
 
@@ -96,7 +96,7 @@ fn enqueue(j: &mut SimJournal, id: u32) -> Result<u8,DharaError> {
     for _i in 0..DHARA_MAX_RETRIES {
         jt_check(j);
         match j.journal_enqueue(Some(&r), Some(&meta)) {
-            Ok(_) => {return Ok(0);},
+            Ok(_) => {return Ok(());},
             Err(DharaError::Recover) => recover(j),
             Err(e) => {return Err(e);},
         }

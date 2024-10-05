@@ -227,7 +227,7 @@ impl DharaNand for SimNand {
         self.blocks[blk].next_page <= pageno as usize
     }
 
-    fn erase(&mut self, blk: DharaBlock) -> Result<u8,DharaError> {
+    fn erase(&mut self, blk: DharaBlock) -> Result<(),DharaError> {
         let block = blk as usize;
         assert!(block < NUM_BLOCKS, "sim: erase called on invalid block {blk}");
         assert!(self.blocks[block].flags & BLOCK_BAD_MARK == 0, "sim: erase 
@@ -253,10 +253,10 @@ impl DharaNand for SimNand {
         }
         
         self.pages[blk_idx..(blk_idx + BLOCK_SIZE)].fill(0xFF);
-        Ok(0)
+        Ok(())
     }
     
-    fn read(&mut self, page: u32, offset: usize, length: usize, data: &mut[u8]) -> Result<u8, DharaError> {
+    fn read(&mut self, page: u32, offset: usize, length: usize, data: &mut[u8]) -> Result<(), DharaError> {
         let blkno: usize = (page >> LOG2_PAGES_PER_BLOCK) as usize;
         let page_idx: usize = (page as usize) << LOG2_PAGE_SIZE;
         assert!(blkno < NUM_BLOCKS, "sim: prog called on invalid block {blkno}");
@@ -274,17 +274,17 @@ impl DharaNand for SimNand {
         let start: usize = page_idx + offset;
         let end: usize = start + length;
         data.copy_from_slice(&self.pages[start..end]);
-        Ok(0)
+        Ok(())
     }
 
-    fn copy(&mut self, src: DharaPage, dst: DharaPage) -> Result<u8,DharaError> {
+    fn copy(&mut self, src: DharaPage, dst: DharaPage) -> Result<(),DharaError> {
         let mut buf: [u8; PAGE_SIZE] = [0; PAGE_SIZE];
         self.read(src, 0, PAGE_SIZE, &mut buf)?;
         self.prog(dst, &buf)?;
-        Ok(0)
+        Ok(())
     }
     
-    fn prog(&mut self, page: DharaPage, data: &[u8]) -> Result<u8,DharaError> {
+    fn prog(&mut self, page: DharaPage, data: &[u8]) -> Result<(),DharaError> {
         let blkno: usize = (page >> LOG2_PAGES_PER_BLOCK) as usize;
         let pageno: usize = (page as usize) & ((1 << LOG2_PAGES_PER_BLOCK) - 1);
         let page_idx: usize = (page as usize) << LOG2_PAGE_SIZE;
@@ -310,7 +310,7 @@ impl DharaNand for SimNand {
         }
 
         self.pages[page_idx..page_idx+PAGE_SIZE].copy_from_slice(data);
-        Ok(0)
+        Ok(())
     }
 
 }
@@ -335,10 +335,4 @@ pub fn seq_assert(seed: u64, buf: &[u8]) -> () {
     for (&element, expect) in zip(buf, expected) {
         assert_eq!(element, expect, "seq_assert: mismatch in sequences.");
     }
-
-    // for &element in buf {
-    //     let expect: u8 = small_rng.next_u8();
-    //     assert_eq!(element, expect, "seq_assert: mismatch in sequences.");
-    // }
-
 }

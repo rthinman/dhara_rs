@@ -118,7 +118,7 @@ pub struct DharaJournal<const N: usize,T: DharaNand> {
 //
 impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
 
-    // Renamed from the original "init" to match common Rust usage.
+    // The original "init" was renamed "new" to match common Rust usage.
     // TODO: go back to "init" because we want to statically allocate
     // a struct, and thus don't want to be passing in dynamically allocated stuff?
 
@@ -129,7 +129,6 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
     /// No NAND operations are performed at this point.
     /// 
     pub fn new(nand: T, page_buf: [u8; N]) -> Self {
-//    pub fn new(nand: T) -> Self {
         // Get these values before moving nand into the struct.
         let psize = nand.get_log2_page_size();
         let max = nand.get_log2_ppb();
@@ -164,7 +163,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
     /// NAND chip. All other operations are O(1).
     /// 
     /// If this operation fails, the journal will be reset to an empty state.
-    pub fn journal_resume(&mut self) -> Result<u8,DharaError> {
+    pub fn journal_resume(&mut self) -> Result<(),DharaError> {
         let res = self.find_checkblock(0);
         match res {
             Err(e) => {
@@ -200,7 +199,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
                 self.tail_sync = self.tail;
 
                 self.clear_recovery();
-                Ok(0)
+                Ok(())
             }
         }
     }
@@ -260,7 +259,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
     /// Read metadata associated with a page. This assumes that the page
     /// provided is a valid data page. The actual page data is read via the
     /// normal NAND interface.
-    pub fn journal_read_meta(&mut self, page: DharaPage, buf: &mut [u8]) -> Result<u8,DharaError> {
+    pub fn journal_read_meta(&mut self, page: DharaPage, buf: &mut [u8]) -> Result<(),DharaError> {
         // Offset of metadata within the metadata page
         let ppc_mask: DharaPage = (1 << self.log2_ppc) - 1;
         let offset = self.hdr_user_offset(page & ppc_mask);
@@ -268,7 +267,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
         // Special case: buffered metadata
         if align_eq(page, self.head, self.log2_ppc) {
             buf[..DHARA_META_SIZE].copy_from_slice(&self.page_buf[offset..offset+DHARA_META_SIZE]);
-            return Ok(0);
+            return Ok(());
         }
 
         // Special case: incomplete metadata dumped at start of recovery
@@ -352,7 +351,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
     /// occur during recovery, E_RECOVER is returned, and the procedure must
     /// be restarted.
     /// 
-    pub fn journal_enqueue(&mut self, data: Option<&[u8]>, meta: Option<&[u8]>) -> Result<u8, DharaError> {
+    pub fn journal_enqueue(&mut self, data: Option<&[u8]>, meta: Option<&[u8]>) -> Result<(), DharaError> {
 
         for _ in 0..DHARA_MAX_RETRIES {
             // Only try to program if head preparation succeeds.
@@ -390,11 +389,11 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
     /// occur during recovery, E_RECOVER is returned, and the procedure must
     /// be restarted.
     /// 
-    pub fn journal_copy(&mut self, page: DharaPage, meta: Option<&[u8]>) -> Result<u8,DharaError> {
+    pub fn journal_copy(&mut self, page: DharaPage, meta: Option<&[u8]>) -> Result<(),DharaError> {
         // TODO: use this logic like in dump_meta, or use match statements
         // and put the self.recover_from() in both the Err(e) branches?
         // let mut my_err: Result<u8,DharaError> = Ok(0);
-        let mut my_err: Result<u8,DharaError>; // Always gets assigned in the loop.
+        let mut my_err: Result<(),DharaError>; // Always gets assigned in the loop.
 
         for _ in 0..DHARA_MAX_RETRIES {
             my_err = self.prepare_head();
@@ -774,7 +773,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
 
     // Find the and set the root of the journal.
     // Side effect is to change the root field.
-    fn find_root(&mut self, start: DharaPage) -> Result<u8, DharaError> {
+    fn find_root(&mut self, start: DharaPage) -> Result<(), DharaError> {
         let block: DharaBlock = start >> self.nand.get_log2_ppb();
         let mut i: u32 = (start & ((1 << self.nand.get_log2_ppb()) - 1)) >> self.log2_ppc;
 
@@ -787,7 +786,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
             if result.is_ok() && self.hdr_has_magic() 
                     && (self.hdr_get_epoch() == self.epoch) {
                 self.root = page - 1; // Found the root.
-                return Ok(0);  // Value is not important.
+                return Ok(());
             }
 
             if i == 0 {
@@ -849,7 +848,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
     }
 
     // Make sure the head pointer is on a ready-to-program page.
-    fn prepare_head(&mut self) -> Result<u8,DharaError> {
+    fn prepare_head(&mut self) -> Result<(),DharaError> {
         let next = self.next_upage(self.head);
 
         // We can't write if doing so would cause the head pointer to
@@ -861,7 +860,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
 
         self.flags |= DHARA_JOURNAL_F_DIRTY;
         if !is_aligned(self.head, self.nand.get_log2_ppb()) {
-            return Ok(0);
+            return Ok(());
         }
 
         for _ in 0..DHARA_MAX_RETRIES {
@@ -897,10 +896,10 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
         self.root = self.recover_root;
     }
 
-    fn dump_meta(&mut self) -> Result<u8,DharaError> {
+    fn dump_meta(&mut self) -> Result<(),DharaError> {
         // We've just begun recovery on a new erasable block, but we have 
         // buffered metadata from the failed block.
-        let mut my_err: Result<u8,DharaError> = Ok(0);
+        let mut my_err: Result<(),DharaError> = Ok(());
 
         for _ in 0..DHARA_MAX_RETRIES {
             my_err = self.prepare_head();
@@ -914,7 +913,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
                     }
                     // Using "into()" method of u8 rather than "as usize".
                     self.hdr_clear_user(self.nand.get_log2_page_size().into());
-                    return Ok(0);
+                    return Ok(());
                 }
             }
             // Report fatal errors.
@@ -931,7 +930,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
         Err(DharaError::TooBad)
     }
 
-    fn recover_from(&mut self, write_err: DharaError) -> Result<u8,DharaError> {
+    fn recover_from(&mut self, write_err: DharaError) -> Result<(),DharaError> {
         let old_head: DharaPage = self.head;
 
         match write_err {
@@ -952,7 +951,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
         // Were we block aligned? No recovery required!
         if is_aligned(old_head, self.nand.get_log2_ppb()) {
             self.nand.mark_bad(old_head >> self.nand.get_log2_ppb());
-            return Ok(0);
+            return Ok(());
         }
 
         self.recover_root = self.root;
@@ -985,7 +984,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
     // Adds metadata to the page buffer.
     // param meta: None for an empty page and thus empty metadata.
     //             Some(&[u8]) reference to a buffer length DHARA_META_SIZE. 
-    fn push_meta(&mut self, meta: Option<&[u8]>) -> Result<u8,DharaError> {
+    fn push_meta(&mut self, meta: Option<&[u8]>) -> Result<(),DharaError> {
         let old_head = self.head;
         let offset: usize = self.hdr_user_offset(self.head & ((1 << self.log2_ppc) - 1));
 
@@ -1000,7 +999,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
         if !is_aligned(self.head + 2, self.log2_ppc) {
             self.root = self.head;
             self.head += 1;
-            return Ok(0);
+            return Ok(());
         }
 
         // We don't need to check for immediate recover, because that'll
@@ -1031,7 +1030,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
             self.tail_sync = self.tail;
         }
 
-        Ok(0)
+        Ok(())
     }
 
 }
@@ -1094,13 +1093,13 @@ mod tests {
         fn is_bad(&mut self, _blk: DharaBlock) -> bool {false}
         fn is_free(&mut self, _page: DharaPage) -> bool {true}
         fn mark_bad(&mut self, _blk: DharaBlock) -> () {()}
-        fn read(&mut self, _page: u32, _offset: usize, _length: usize, data: &mut[u8]) -> Result<u8, DharaError> {
+        fn read(&mut self, _page: u32, _offset: usize, _length: usize, data: &mut[u8]) -> Result<(), DharaError> {
             data.fill(0x55);
-            Ok(0)
+            Ok(())
         }
-        fn erase(&mut self, _blk: DharaBlock) -> Result<u8,DharaError> {Ok(0)}
-        fn copy(&mut self, _src: DharaPage, _dst: DharaPage) -> Result<u8,DharaError> {Ok(0)}
-        fn prog(&mut self, _page: DharaPage, _data: &[u8]) -> Result<u8,DharaError> {Ok(0)}
+        fn erase(&mut self, _blk: DharaBlock) -> Result<(),DharaError> {Ok(())}
+        fn copy(&mut self, _src: DharaPage, _dst: DharaPage) -> Result<(),DharaError> {Ok(())}
+        fn prog(&mut self, _page: DharaPage, _data: &[u8]) -> Result<(),DharaError> {Ok(())}
         // Only used when simulating.
         // #[cfg(test)]
         // fn freeze(&mut self) -> () {()}

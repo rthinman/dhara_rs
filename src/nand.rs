@@ -41,7 +41,7 @@ pub trait DharaNand {
     /// or Err(e) on failure.  The status reported by the chip should
     /// be checked.  If an erase operation fails, it should return 
     /// Err(BadBlock).
-    fn erase(&mut self, blk: DharaBlock) -> Result<u8,DharaError>;
+    fn erase(&mut self, blk: DharaBlock) -> Result<(),DharaError>;
 
     /// Program the given page.  
     /// The data pointer is *** TODO figure this out.
@@ -49,7 +49,7 @@ pub trait DharaNand {
     /// return Err(BadBlock).
     /// Pages will be programmed sequentially within a block, and will
     /// not be reprogrammed.
-    fn prog(&mut self, page: DharaPage, data: &[u8]) -> Result<u8,DharaError>;
+    fn prog(&mut self, page: DharaPage, data: &[u8]) -> Result<(),DharaError>;
 
     /// Check the the given page is erased.
     fn is_free(&mut self, page: DharaPage) -> bool;
@@ -59,12 +59,12 @@ pub trait DharaNand {
     /// If an uncorrectable ECC error occurs, return Err(ECC).
     // TODO: is this the right way to handle errors?  The u8 isn't really used.
     // TODO: is this the right way to deal with data? Check this reads into an external slice.
-    fn read(&mut self, page: u32, offset: usize, length: usize, data: &mut[u8]) -> Result<u8, DharaError>;
+    fn read(&mut self, page: u32, offset: usize, length: usize, data: &mut[u8]) -> Result<(), DharaError>;
 
     /// Read a page from one location and reprogram it in another location.
     /// This might be done using the chip's internal buffers, but it must use
     /// ECC.
-    fn copy(&mut self, src: DharaPage, dst: DharaPage) -> Result<u8,DharaError>;
+    fn copy(&mut self, src: DharaPage, dst: DharaPage) -> Result<(),DharaError>;
 
     // Only used when simulating.
     // #[cfg(test)]
