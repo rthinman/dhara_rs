@@ -1,8 +1,8 @@
 mod jtutil;
 mod sim;
 
-use sim::SimNand;
-use jtutil::{Pages, SimJournal, jt_enqueue_sequence, jt_dequeue_sequence};
+use sim::{SimJournal, SimNand};
+use jtutil::{Pages, jt_enqueue_sequence, jt_dequeue_sequence};
 
 fn fill() -> () {
     let mut nand: SimNand = SimNand::new();

@@ -1,8 +1,8 @@
 mod jtutil;
 mod sim;
 
-use sim::SimNand;
-use jtutil::{Pages, SimJournal, jt_enqueue_sequence, jt_dequeue_sequence};
+use sim::{SimJournal, SimNand};
+use jtutil::{Pages, jt_enqueue_sequence, jt_dequeue_sequence};
 
 /// Function to run all the scenarios.
 /// Each scenario modifies the nand's block characteristics.

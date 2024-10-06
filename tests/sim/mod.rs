@@ -1,9 +1,13 @@
 use dhara_rs::DharaError;
 use dhara_rs::nand::{DharaBlock, DharaNand, DharaPage};
+use dhara_rs::journal::DharaJournal;
 
 use rand::{Rng, RngCore, SeedableRng};
 use rand::rngs::SmallRng;
 use std::iter::zip;
+
+// Reduce typing for this specific test journal.
+pub type SimJournal = DharaJournal::<512, SimNand>;
 
 pub const LOG2_PAGE_SIZE: u8 = 9;
 pub const LOG2_PAGES_PER_BLOCK: u8 = 3;

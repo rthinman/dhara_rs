@@ -3,16 +3,13 @@ use dhara_rs::journal::{DharaJournal, DHARA_PAGE_NONE, DHARA_META_SIZE, DHARA_MA
 // use dhara_rs::nand::DharaPage;
 use dhara_rs::nand::{DharaNand, DharaPage};
 use dhara_rs::DharaError;
-use crate::sim::{seq_assert, seq_gen, SimNand, PAGE_SIZE};
+use crate::sim::{seq_assert, seq_gen, SimJournal, SimNand, PAGE_SIZE};
 
 /// To specify how many pages to enqueue.
 pub enum Pages {
     All,
     Count(u32),
 }
-
-// Reduce typing for this specific test journal.
-pub type SimJournal = DharaJournal::<512, SimNand>;
 
 fn check_upage(j: &SimJournal, page: DharaPage) -> () {
     let mask: DharaPage = (1 << j.get_log2_ppc()) - 1;
