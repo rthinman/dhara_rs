@@ -467,6 +467,7 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
     pub fn get_tail_sync(&self) -> u32 {self.tail_sync}
     pub fn get_bb_current(&self) -> u32 {self.bb_current}
     pub fn get_bb_last(&self) -> u32 {self.bb_last}
+    // TODO: get_root and journal_root do the same thing.  Eliminate one.
     pub fn get_root(&self) -> u32 {self.root}
     pub fn get_log2_ppb(&self) -> u8 {self.nand.get_log2_ppb()}
     pub fn get_num_blocks(&self) -> u32 {self.nand.get_num_blocks()}

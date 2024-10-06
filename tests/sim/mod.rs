@@ -187,11 +187,11 @@ impl SimNand {
     
     // Only used when simulating.
     // #[cfg(test)]
-    fn freeze(&mut self) -> () {
+    pub fn freeze(&mut self) -> () {
         self.stats.frozen = true;
     }
     // #[cfg(test)]
-    fn thaw(&mut self) -> () {
+    pub fn thaw(&mut self) -> () {
         self.stats.frozen = false;
     }
 }
