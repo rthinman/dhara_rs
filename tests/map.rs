@@ -3,7 +3,7 @@ mod sim;
 use dhara_rs::journal::{DHARA_META_SIZE, DHARA_PAGE_NONE};
 use dhara_rs::nand::DharaPage;
 use dhara_rs::{meta_get_alt, meta_get_id, DharaError, DharaMap, DharaSector};
-use rand::{Rng, RngCore, SeedableRng};
+use rand::{Rng, SeedableRng};
 use rand::rngs::SmallRng;
 use sim::{seq_assert, seq_gen, SimNand, PAGE_SIZE};
 
@@ -97,6 +97,8 @@ fn mt_check(m: &mut SimMap) -> () {
     let count = check_recurse(m, m.journal.get_head(), m.journal.get_root(), 0, 0);
 
     m.journal.nand.thaw();
+
+    assert_eq!(count, m.get_size() as usize);
 }
 
 fn mt_write(m: &mut SimMap, s: DharaSector, seed: u64) -> () {
@@ -207,7 +209,7 @@ fn mt_test() -> () {
 
 #[test]
 fn main_map() -> () {
-    for i in 0..1000 {
+    for _i in 0..1000 {
         // Each iteration should inject different bad blocks and timebombs.
         mt_test();
     }

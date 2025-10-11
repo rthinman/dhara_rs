@@ -37,7 +37,7 @@ pub enum DharaError {
 pub struct DharaMap<const N: usize,T: DharaNand> {
     // TODO: Journal is public so that tests can reach in and examine it.
     //       Change that somehow?
-    pub journal: journal::DharaJournal<N,T>,
+    pub journal: DharaJournal<N,T>,
     gc_ratio: u8,
     count: DharaSector,
 }
@@ -67,7 +67,7 @@ impl<const N: usize,T: DharaNand> DharaMap<N,T> {
             ratio = 1;
         }
 
-        let mut journal = journal::DharaJournal::<N,T>::new(nand, page_buf);
+        let journal = DharaJournal::<N,T>::new(nand, page_buf);
         
         DharaMap {
             journal: journal,
@@ -541,7 +541,7 @@ fn trace_not_found(new_meta: &mut [u8], mut depth: usize) -> Result<DharaPage, D
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    // use super::*;
 
     #[test]
     fn it_works() {

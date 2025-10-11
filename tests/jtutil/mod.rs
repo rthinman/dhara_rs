@@ -1,9 +1,9 @@
 use dhara_rs::bytes::{dhara_r32, dhara_w32};
-use dhara_rs::journal::{DharaJournal, DHARA_PAGE_NONE, DHARA_META_SIZE, DHARA_MAX_RETRIES};
+use dhara_rs::journal::{DHARA_PAGE_NONE, DHARA_META_SIZE, DHARA_MAX_RETRIES};
 // use dhara_rs::nand::DharaPage;
 use dhara_rs::nand::{DharaNand, DharaPage};
 use dhara_rs::DharaError;
-use crate::sim::{seq_assert, seq_gen, SimJournal, SimNand, PAGE_SIZE};
+use crate::sim::{seq_assert, seq_gen, SimJournal, PAGE_SIZE};
 
 /// To specify how many pages to enqueue.
 pub enum Pages {
