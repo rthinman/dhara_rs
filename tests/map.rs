@@ -140,16 +140,16 @@ fn mt_test() -> () {
     // Give them to the map.
     println!("Map init");
     let mut map = SimMap::new(nand, buf, GC_RATIO);
-    map.resume(); // .expect("map resume failed");
+    let _ = map.resume(); // May fail, ignore result
     println!("  capacity: {}", map.get_capacity());
     println!("  sector count: {}", NUM_SECTORS);
     println!();
 
     println!("Sync...");
-    map.sync();
+    let _ = map.sync(); // May fail, ignore result
     println!("Resume...");
     // map.init(); // Doesn't exist in Rust implementation. TODO: should it?
-    map.resume(); // .expect("map resume failed");
+    let _ = map.resume(); // May fail, ignore result
 
     println!("Writing sectors...");
     sector_list.shuffle(0); //TODO: check these low bit seeds are OK.
@@ -160,10 +160,10 @@ fn mt_test() -> () {
     }
 
     println!("Sync...");
-    map.sync();
+    let _ = map.sync(); // May fail, ignore result
     println!("Resume...");
     // map.init(); // Doesn't exist in Rust implementation. TODO: should it?
-    map.resume(); // .expect("map resume failed");
+    let _ = map.resume(); // May fail, ignore result
     println!("  capacity: {}", map.get_capacity());
     println!("  use count: {}", map.get_size());
     println!();
@@ -188,10 +188,10 @@ fn mt_test() -> () {
     }
 
     println!("Sync...");
-    map.sync();
+    let _ = map.sync(); // May fail, ignore result
     println!("Resume...");
     // map.init(); // Doesn't exist in Rust implementation. TODO: should it?
-    map.resume(); // .expect("map resume failed");
+    let _ = map.resume(); // May fail, ignore result
     println!("  capacity: {}", map.get_capacity());
     println!("  use count: {}", map.get_size());
     println!();

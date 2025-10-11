@@ -900,23 +900,22 @@ impl<const N: usize,T: DharaNand> DharaJournal<N,T> {
     fn dump_meta(&mut self) -> Result<(),DharaError> {
         // We've just begun recovery on a new erasable block, but we have 
         // buffered metadata from the failed block.
-        let mut my_err: Result<(),DharaError> = Ok(());
-
+        
         for _ in 0..DHARA_MAX_RETRIES {
-            my_err = self.prepare_head();
+            let my_err = self.prepare_head()
+                .and_then(|_| self.nand.prog(self.head, &self.page_buf));
+            
             if my_err.is_ok() {
-                my_err = self.nand.prog(self.head, &self.page_buf);
-                if my_err.is_ok() {
-                    self.recover_meta = self.head;
-                    self.head = self.next_upage(self.head);
-                    if self.head == 0 {
-                        self.roll_stats();
-                    }
-                    // Using "into()" method of u8 rather than "as usize".
-                    self.hdr_clear_user(self.nand.get_log2_page_size().into());
-                    return Ok(());
+                self.recover_meta = self.head;
+                self.head = self.next_upage(self.head);
+                if self.head == 0 {
+                    self.roll_stats();
                 }
+                // Using "into()" method of u8 rather than "as usize".
+                self.hdr_clear_user(self.nand.get_log2_page_size().into());
+                return Ok(());
             }
+            
             // Report fatal errors.
             match my_err {
                 Err(DharaError::BadBlock) => (),

@@ -7,6 +7,7 @@ use rand::rngs::SmallRng;
 use std::iter::zip;
 
 // Reduce typing for this specific test journal.
+#[allow(dead_code)] // Used across test modules but not detected by dead code analysis
 pub type SimJournal = DharaJournal::<512, SimNand>;
 
 pub const LOG2_PAGE_SIZE: u8 = 9;
@@ -64,6 +65,7 @@ pub struct SimNand {
 }
 
 // Implementation of non-DharaNand methods.
+#[allow(dead_code)] // Methods used across test modules but not detected by dead code analysis
 impl SimNand {
     pub fn new() -> Self {
         let block = BlockStatus {flags: 0, next_page: PAGES_PER_BLOCK,

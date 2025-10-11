@@ -209,16 +209,16 @@ impl<const N: usize,T: DharaNand> DharaMap<N,T> {
     pub fn sync(&mut self) -> Result<(), DharaError> {
         while !self.journal.journal_is_clean() {
             let p = self.journal.journal_peek();
-            let mut ret: Result<(),DharaError>;
-
-            if p == DHARA_PAGE_NONE {
-                ret = self.pad_queue();
+            
+            let ret = if p == DHARA_PAGE_NONE {
+                self.pad_queue()
             } else {
-                ret = self.raw_gc(p);
-                if ret.is_ok() {
+                let result = self.raw_gc(p);
+                if result.is_ok() {
                     self.journal.journal_dequeue();
                 }
-            }
+                result
+            };
 
             match ret {
                 Ok(_) => (),
@@ -385,14 +385,13 @@ impl<const N: usize,T: DharaNand> DharaMap<N,T> {
         let mut restart_count: u8 = 0;
 
         while self.journal.journal_in_recovery() {
-            let mut ret: Result<(),DharaError>;
             let p = self.journal.journal_next_recoverable();
 
-            if p == DHARA_PAGE_NONE {
-                ret = self.pad_queue();
+            let ret = if p == DHARA_PAGE_NONE {
+                self.pad_queue()
             } else {
-                ret = self.raw_gc(p);
-            }
+                self.raw_gc(p)
+            };
 
             match ret {
                 Ok(_) => {continue;},

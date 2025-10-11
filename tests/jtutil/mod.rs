@@ -6,6 +6,7 @@ use dhara_rs::DharaError;
 use crate::sim::{seq_assert, seq_gen, SimJournal, PAGE_SIZE};
 
 /// To specify how many pages to enqueue.
+#[allow(dead_code)] // Used across test modules but not detected by dead code analysis
 pub enum Pages {
     All,
     Count(u32),
@@ -47,7 +48,6 @@ pub fn jt_check(j: &SimJournal) -> () {
 
 fn recover(j: &mut SimJournal) -> () {
     let mut retry_count: usize = 0;
-    let mut res: Result<(), DharaError> = Ok(());
 
     println!("    recover: start");
 
@@ -56,13 +56,13 @@ fn recover(j: &mut SimJournal) -> () {
 
         jt_check(j);
 
-        if page == DHARA_PAGE_NONE {
-            res = j.journal_enqueue(None, None);
+        let res = if page == DHARA_PAGE_NONE {
+            j.journal_enqueue(None, None)
         } else {
             let mut meta = [0u8; DHARA_META_SIZE];
             j.journal_read_meta(page, &mut meta).expect("read_meta");
-            res = j.journal_copy(page, Some(&meta));
-        }
+            j.journal_copy(page, Some(&meta))
+        };
 
         jt_check(j);
 
